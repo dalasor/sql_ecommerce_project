@@ -6,6 +6,7 @@
 
 
 with tab AS (
+    
     SELECT order_id
     FROM   courier_actions
     WHERE  action = 'accept_order'
