@@ -239,8 +239,10 @@ ORDER BY delivery_time
 		- **Стандартный выбор:**  **α = 0.05**  (5%) →  **95% доверительный интервал**. 
 	- **Доверительный  интервал**:
 	
-	$$ \text{ДИ} = (\bar{X}_1 - \bar{X}_2) \pm z_{\alpha/2} \cdot SE $$
-	$$ \frac{\mathrm{d}\Phi_{\nu}}{\mathrm{d}E_{\nu}} = \frac{c}{4\pi} \frac{\mathrm{d}N_{\nu}}{\mathrm{d}E_{\nu}} = \frac{c}{4\pi} n_{\mathrm{PBH}}(t_{0}) \int_{t_{\mathrm{min}}}^{t_{0}} \mathrm{d}t (1+z) \frac{\mathrm{d}^{2}N_{\nu}^{\mathrm{tot}}(E_{\nu}(1+z), M(t))}{\mathrm{d}t\mathrm{d}E_{\nu}} ,$$	
+	$$ 
+		\text{ДИ} = (\bar{X}_1 - \bar{X}_2) \pm z_{\alpha/2} \cdot SE
+	$$
+		
 	
 	где $`z_{\alpha/2} \approx 1.96`$ -- критическое значение z-критерия для двустороннего теста с α = 0.05 (для 95% ДИ), $`SE`$ -- стандартная ошибка разницы средних: 
 $$ SE = \sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}} $$
