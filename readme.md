@@ -251,7 +251,7 @@ ORDER BY delivery_time
 
   - **Размер эффекта Cohen’s d** - стандартизированная мера размера эффекта, которая помогает понять, **насколько важны различия между группами** не только с точки зрения статистики, но и с точки зрения практической ценности:
 
-  $$d = \frac{\right|\overline{X_1} - \overline{X_2} \right|}{s_{\text{pooled}}}$$
+  $$d = \frac{\left|\overline{X_1} - \overline{X_2} \right|}{s_{\text{pooled}}}$$
 
     Где:
 
@@ -260,8 +260,9 @@ ORDER BY delivery_time
   - Из-за отсутсвия поддержки функции CDF проведем **аппроксимацию Абрамовица и Стегуна** прямо в SQL-запросе по формуле:
 
   $$\Phi(z) \approx
-  \begin{cases} 1 - \phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z \geq 0 \\
-  \phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z < 0
+  \begin{cases}
+  	1 - \phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z \geq 0 \\
+  	\phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z < 0
   \end{cases}$$
 
   - Целиком весь запрос:
