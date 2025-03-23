@@ -235,7 +235,7 @@ ORDER BY delivery_time
 
   - **Доверительный интервал**:
 
-  $$\text{DI} = (\bar{X}_1 - \bar{X}_2) \pm z_{\alpha/2} \cdot SE$$
+  $$\text{DI} = (\overline{X}_{1} - \overline{X}_{2}) \pm z_{\alpha/2} \cdot SE$$
 
     где `$z_{\alpha/2} \approx 1.96$` - критическое значение z-критерия для двустороннего теста с α = 0.05 (для 95% ДИ), `$SE$` - стандартная ошибка разницы средних:
 
