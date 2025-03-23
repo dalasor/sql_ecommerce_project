@@ -237,7 +237,7 @@ ORDER BY delivery_time
 
   $$\text{DI} = (\overline{X_1}-\overline{X_2}) \pm z_{\alpha/2} \cdot SE$$
 
-    где `$z_{\alpha/2} \approx 1.96$` - критическое значение z-критерия для двустороннего теста с α = 0.05 (для 95% ДИ), `$SE$` - стандартная ошибка разницы средних:
+    где $z_{\alpha/2} \approx 1.96$ - критическое значение z-критерия для двустороннего теста с α = 0.05 (для 95% ДИ), $SE$ - стандартная ошибка разницы средних:
 
   $$SE = \sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}$$
 
@@ -251,7 +251,7 @@ ORDER BY delivery_time
 
   - **Размер эффекта Cohen’s d** - стандартизированная мера размера эффекта, которая помогает понять, **насколько важны различия между группами** не только с точки зрения статистики, но и с точки зрения практической ценности:
 
-  $$d = \frac{|\bar{X}_1 - \bar{X}_2|}{s_{\text{pooled}}}$$
+  $$d = \frac{\right|\overline{X_1} - \overline{X_2} \right|}{s_{\text{pooled}}}$$
 
     Где:
 
@@ -259,7 +259,10 @@ ORDER BY delivery_time
 
   - Из-за отсутсвия поддержки функции CDF проведем **аппроксимацию Абрамовица и Стегуна** прямо в SQL-запросе по формуле:
 
-  $$\Phi(z) \approx \begin{cases} 1 - \phi(z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z \geq 0 \\\phi(z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z < 0 \end{cases}$$
+  $$\Phi(z) \approx
+  \begin{cases} 1 - \phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z \geq 0 \\
+  \phi (z) \cdot \left(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5\right), & z < 0
+  \end{cases}$$
 
   - Целиком весь запрос:
 
