@@ -1,6 +1,7 @@
 # 📊 Анализ данных E-commerce сервиса доставки на SQL
 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue?logo=postgresql)](https://www.postgresql.org/)
+[![Redash](https://redash.io/assets/images/elements/redash-logo.svg)](https://redash.io/)
 [![Power BI](https://img.shields.io/badge/Power_BI-F2C811?logo=powerbi)](https://powerbi.microsoft.com/)
 
 Проект аналитики данных онлайн-сервиса доставки товаров с исследованием с помощью SQL и статистики.
