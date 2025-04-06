@@ -1,8 +1,8 @@
 # 📊 Анализ данных E-commerce сервиса доставки на SQL
 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue?logo=postgresql)](https://www.postgresql.org/)
-[![Redash](https://redash.io/assets/images/elements/redash-logo.svg)](https://redash.io/)
 [![Power BI](https://img.shields.io/badge/Power_BI-F2C811?logo=powerbi)](https://powerbi.microsoft.com/)
+[![Redash](https://redash.io/assets/images/elements/redash-logo.svg)](https://redash.io/)
 
 Проект аналитики данных онлайн-сервиса доставки товаров с исследованием с помощью SQL и статистики.
 
@@ -402,6 +402,7 @@ FROM z_test
  -----------
  
  ## 2. Анализ товаров и их продаж
+ #### 1. Выручка
  1. Определить количество продаж для каждого товара, выручку по каждому товару, общую выручку из таблицы `orders`, учитывая только неотмененные заказы. Также оценить корреляцию между: 
     - ценой и количеством продаж
     - ценой и выручкой
@@ -493,6 +494,56 @@ ORDER BY revenue_percentage DESC
     -   Низкая диверсификация: 87 товаров — малая выборка для устойчивой модели.
  
 -----------
+
+#### 2. Какие пары товаров покупают чаще всего (SELF JOIN)
+
+```sql
+-- какие пары товаров покупают вместе чаще всего
+
+WITH main_table AS (
+    SELECT  DISTINCT order_id,
+            product_id,
+            name
+    FROM (
+        SELECT  order_id,
+                unnest(product_ids) as product_id
+        FROM orders
+        WHERE order_id NOT IN (
+            SELECT order_id
+            FROM   user_actions
+            WHERE  action = 'cancel_order'
+        )
+    ) t
+    LEFT JOIN products using(product_id)
+    ORDER BY order_id, name
+)
+    
+SELECT pair,
+       count(order_id) as count_pair
+FROM (
+    SELECT  DISTINCT a.order_id,
+            CASE 
+                WHEN a.name > b.name THEN string_to_array(concat(b.name, '+', a.name), '+')
+                ELSE string_to_array(concat(a.name, '+', b.name), '+') 
+            END AS pair
+    FROM main_table a 
+    JOIN main_table b
+        ON a.order_id = b.order_id 
+        AND a.name != b.name
+) t
+GROUP BY pair
+ORDER BY count_pair desc, pair
+```
+
+| pair                                                    | count_pair |
+|---------------------------------------------------------|------------|
+| ['курица', 'хлеб']                                      | 249        |
+| ['сахар', 'хлеб']                                       | 237        |
+| ['батон', 'хлеб']                                       | 235        |
+| ['кофе 3 в 1', 'чай черный в пакетиках']                | 235        |
+| ['курица', 'сахар']                                     | 233        |
+
+------
 -----------
  
 ## 3. Анализ пользователей
@@ -613,7 +664,7 @@ ORDER BY avg_order_size asc
 
 #### 3. Общее количество оформленных и отмененных заказов по дням недели. 
 
-а) Сперва для каждого пользователя в таблице `user_actions`  посчитаем общее количество оформленных заказов и долю отменённых заказов. 
+**а)** Сперва для каждого пользователя в таблице `user_actions`  посчитаем общее количество оформленных заказов и долю отменённых заказов. 
 
 ```sql
 SELECT  user_id,
@@ -667,14 +718,238 @@ ORDER BY cancel_orders ASC
 
 ![Общее количество оформленных и отмененных заказов](visuals/cancel_rate.png)
 
-Отличается ли  success rate  (доля неотменённых заказов) в разные дни недели. Для этого посчитаем, сколько всего было оформлено заказов в каждый из дней, сколько из этих заказов было отменено и сколько фактически было успешно доставлено до пользователей (6.19)
-4. Давайте объединим в один запрос данные о количестве товаров в заказах наших пользователей с информацией о стоимости каждого заказа, а затем рассчитаем несколько полезных показателей. (8.14)
-5. На одном из прошлых уроков мы считали долю отменённых заказов (cancel_rate) для каждого пользователя. Теперь в нашем распоряжении есть все необходимые знания, чтобы посчитать этот показатель в разрезе пола. (8.17)
-6. Выясните, кто заказывал и доставлял самые большие заказы. Самыми большими считайте заказы с наибольшим числом товаров. (8.20)
-7. Выясните, какие пары товаров покупают вместе чаще всего. (8.21)
+**б)** Теперь посмотрим, отличается ли  success rate  (доля неотменённых заказов) и средний размер заказа для отмененных и неотмененных заказов в разные дни недели:
+
+```sql
+SELECT  
+        date_part('isodow', time)::int as weekday_number,
+        to_char(time, 'Dy') as weekday,
+        count(ua.order_id) filter (WHERE action = 'create_order') as created_orders,
+        count(ua.order_id) filter (WHERE action = 'cancel_order') as canceled_orders,
+        count(ua.order_id) filter (WHERE action = 'create_order') 
+            - count(ua.order_id) filter (WHERE action = 'cancel_order') as actual_orders,
+        round((count(ua.order_id) filter (WHERE action = 'create_order') 
+            - count(ua.order_id) filter (WHERE action = 'cancel_order'))::decimal / 
+            count(ua.order_id) filter (WHERE action = 'create_order'), 3) as success_rate,
+        AVG(array_length(o.product_ids, 1)) FILTER (WHERE action = 'create_order') 
+            AS avg_order_size,
+        AVG(array_length(o.product_ids, 1)) FILTER (WHERE action = 'cancel_order') 
+            AS avg_cancelled_order_size
+            
+FROM   user_actions ua
+INNER JOIN orders o
+    ON ua.order_id = o.order_id
+WHERE  time >= '2022-08-24'
+  and time < '2022-09-07'
+GROUP BY weekday_number, weekday
+ORDER BY weekday_number
+```
+
+| weekday_number | weekday | created_orders | canceled_orders | actual_orders | success_rate | avg_order_size | avg_cancelled_order_size |
+|----------------|---------|----------------|-----------------|---------------|--------------|----------------|--------------------------|
+| 1              | Mon     | 8374           | 434             | 7940          | 0.948        | 3.41           | 3.43                     |
+| 2              | Tue     | 7193           | 370             | 6823          | 0.949        | 3.40           | 3.42                     |
+| 3              | Wed     | 3758           | 210             | 3548          | 0.944        | 3.39           | 3.47                     |
+| 4              | Thu     | 5004           | 258             | 4746          | 0.948        | 3.41           | 3.30                     |
+| 5              | Fri     | 6800           | 352             | 6448          | 0.948        | 3.39           | 3.34                     |
+| 6              | Sat     | 8249           | 399             | 7850          | 0.952        | 3.40           | 3.46                     |
+| 7              | Sun     | 9454           | 443             | 9011          | 0.953        | 3.37           | 3.35                     |
+
+![Общее количество оформленных и отмененных заказов по дням недели](visuals/orders_per_day_of_week.png)
+
+![Средний размер заказа для отмененных и неотмененных заказов по дням недели](visuals/avg_order_size_per_weekday.png)
+
+**Вывод:**
+
+- Доля неотменённых заказов (`success_rate`) и средний размер заказа для отмененных и неотмененных заказов в разные дни недели остается практически на одном и том же уровне, аномалий нет, сервис работает стабильно. 
+- Заметно меньше заказов совершается в по средам и четвергам, чаще - в начале и конце недели.
+
+#### 4. Средний чек (по пользователям и по заказам)
+
+**а)** Для начала построим таблицу, в которой рассчитаем общую стоимость каждого заказа, совршенного пользователями. Для этого необходимо сначала "развернуть" таблицу `orders` по столбцу `product_ids`, после этого объединить с помощью `LEFT JOIN` эту развернутую таблицу с таблицей `products`, `user_actions` и `users`:
+
+```sql
+-- Средний чек
+
+SELECT  o.order_id,
+        u.user_id,
+        ARRAY_AGG(p.name) AS product_names,
+        ARRAY_LENGTH(o.product_ids, 1) AS order_size,
+        SUM(p.price) AS order_price
+FROM (
+    SELECT order_id, product_ids, unnest(product_ids) AS product_id
+    FROM orders
+    WHERE order_id NOT IN (
+        SELECT order_id FROM user_actions
+        WHERE action = 'cancel_order'
+    )
+) o
+LEFT JOIN products p
+    ON o.product_id = p.product_id
+LEFT JOIN user_actions ua
+    ON o.order_id = ua.order_id
+LEFT JOIN users u
+    ON ua.user_id = u.user_id
+GROUP BY o.order_id, o.product_ids, u.user_id
+ORDER BY order_price DESC
+
+```
+
+| order_id | user_id | order_price | order_size | product_names                                                                                |
+|----------|---------|-------------|------------|----------------------------------------------------------------------------------------------|
+| 59374    | 16710   | 2014.00     | 6          | ['свинина', 'лимонад', 'чай черный листовой', 'кофе без кофеина', 'икра', 'морс брусничный'] |
+| 44230    | 10951   | 2006.00     | 6          | ['кетчуп', 'курица', 'икра', 'масло оливковое', 'сушки', 'говядина']                         |
+| 55638    | 20373   | 1959.00     | 6          | ['говядина', 'свинина', 'баранина', 'вода негазированная', 'масло оливковое', 'сметана']     |
+| 33395    | 13807   | 1959.00     | 6          | ['курица', 'икра', 'рис', 'шоколад черный', 'кофе зерновой', 'мед']                          |
+| 56492    | 13599   | 1946.00     | 5          | ['икра', 'сосиски', 'кофе растворимый', 'леденцы', 'икра']                                   |
+
+**б)** Группируем по пользователям и узнаем для каждого из них количество заказов, общую стоимость всех заказов и общее количество продуктов, которое было куплено во всех заказах (`t1` - предыдущая таблица):
+
+```sql
+SELECT  user_id,
+        COUNT(order_id) AS total_orders,
+        SUM(order_price) AS total_price,
+        SUM(order_size) AS total_products
+FROM t1
+GROUP BY user_id
+ORDER BY total_price DESC, total_orders DESC, user_id ASC
+LIMIT 5
+``` 
+
+| user_id | total_orders | total_price | total_products |
+|---------|--------------|-------------|----------------|
+| 3131    | 11           | 6490        | 45             |
+| 2567    | 8            | 6296        | 36             |
+| 3793    | 17           | 6225        | 58             |
+| 451     | 9            | 5890        | 32             |
+| 183     | 10           | 5880        | 47             |
+
+Это информация полезна, если захотим поощрить пользование сервисом для самых платежеспособных клиентов сервиса,
+
+**в)** Теперь найдем статистику по этим столбцам
+
+```sql
+-- Средний чек (по пользователям)
+
+WITH t1 AS (
+    SELECT  o.order_id,
+            u.user_id,
+            SUM(p.price) AS order_price,
+            ARRAY_LENGTH(o.product_ids, 1) AS order_size,
+            ARRAY_AGG(p.name) AS product_names
+    FROM (
+        SELECT order_id, product_ids, unnest(product_ids) AS product_id
+        FROM orders
+        WHERE order_id NOT IN (
+            SELECT order_id FROM user_actions
+            WHERE action = 'cancel_order'
+        )
+    ) o
+    LEFT JOIN products p
+        ON o.product_id = p.product_id
+    LEFT JOIN user_actions ua
+        ON o.order_id = ua.order_id
+    INNER JOIN users u
+        ON ua.user_id = u.user_id
+    GROUP BY o.order_id, o.product_ids, u.user_id
+    ORDER BY order_price DESC
+    
+), t2 AS (
+    SELECT  user_id,
+            COUNT(order_id) AS total_orders,
+            SUM(order_price) AS total_price,
+            SUM(order_size) AS total_products
+    FROM t1
+    GROUP BY user_id
+    ORDER BY total_price DESC, total_orders DESC, user_id ASC
+)
+
+SELECT
+
+    AVG(total_orders) AS avg_total_orders,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_orders) AS median_orders,
+    MIN(total_orders) AS min_total_orders,
+    MAX(total_orders) AS max_total_orders,
+    
+    AVG(total_price) AS avg_total_price,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_price) AS median_price,
+    MIN(total_price) AS min_total_price,
+    MAX(total_price) AS max_total_price
+    
+FROM t2
+
+```
+
+| avg_total_orders   | median_orders | min_total_orders | max_total_orders | avg_total_price    | median_price | min_total_price | max_total_price |
+|--------------------|---------------|------------------|------------------|--------------------|--------------|-----------------|-----------------|
+| 2.68 | 2.0           | 1                | 17               | 1026.46 | 828.0        | 1               | 6490            |
+
+```sql
+    -- средний чек "классический" на основе исходной t1
+    SELECT
+        
+        AVG(order_price) AS avg_total_price,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY order_price) AS median_price,
+        MIN(order_price) AS min_total_price,
+        MAX(order_price) AS max_total_price
+        
+    FROM t1
+```
+
+| avg_total_price   | median_price | min_total_price | max_total_price |
+|-------------------|--------------|-----------------|-----------------|
+| 383.16 | 321.0        | 1.0               | 2014.0            |
+
+
+**Вывод:**
+  - Пользователь в среднем тратит - 1026, при максимуме - 6490 и медиане 828. Пользователи в основном сделали по 2-3 заказа на сервисе. Распределения нессиметричны - признак ненормальности. Самых платежеспособных клиентов можно поощрить баллами или подарками, дать привелегии, чтобы замотивировать покупать еще.
+  - С каждого заказа в среднем сервис полует ~ 380 р. 
+
+#### 5. Кто оформлял и доставлял самые большие заказы
+```sql
+-- КТо оформлял и доставлял самые большие заказы
+
+WITH last_date as (
+    SELECT time::date
+    FROM user_actions
+    ORDER BY time desc limit 1
+
+), uo as (
+    SELECT order_id,
+           user_id
+    FROM user_actions
+    WHERE action = 'create_order'
+        AND order_id NOT IN (
+            SELECT order_id
+            FROM   user_actions
+            WHERE  action = 'cancel_order'
+        )
+)
+
+SELECT DISTINCT order_id,
+        user_id,
+        date_part('year', age((SELECT * FROM last_date), u.birth_date))::integer as user_age,
+        courier_id, 
+        date_part('year', age((SELECT * FROM   last_date), c.birth_date))::integer as courier_age
+        
+FROM uo
+    LEFT JOIN orders o using(order_id)
+    LEFT JOIN courier_actions ca using(order_id)
+    LEFT JOIN users u using(user_id)
+    LEFT JOIN couriers c using(courier_id)
+WHERE  array_length(product_ids, 1) = (SELECT max(array_length(product_ids, 1)) FROM   orders)
+ORDER BY order_id
+```
+
+| order_id | user_id | user_age | courier_id | courier_age |
+|----------|---------|----------|------------|-------------|
+| 7949     | 3804    | 29       | 845        | 19          |
+| 18853    | 5433    | 31       | 1537       | 33          |
+| 29786    | 12728   | 33       | 431        | 26          |
+| 49755    | 18622   | 29       | 1619       | 32          |
+| 51414    | 17170   | 31       | 2564       | 27          |
 
 -----------
 -----------
 
 ## 4. Временные тренды бизнес-показателей 
- 
